@@ -9,8 +9,16 @@ export const GitHubLogin = ({ onDirectLookup }) => {
 
   const handleDirectSubmit = (e) => {
     e.preventDefault();
-    if (usernameInput.trim() && onDirectLookup) {
-      onDirectLookup(usernameInput.trim());
+    const target = usernameInput.trim() || 'octocat';
+    if (onDirectLookup) {
+      onDirectLookup(target);
+    }
+  };
+
+  const handleQuickTagClick = (user) => {
+    setUsernameInput(user);
+    if (onDirectLookup) {
+      onDirectLookup(user);
     }
   };
 
@@ -110,7 +118,7 @@ export const GitHubLogin = ({ onDirectLookup }) => {
         <form onSubmit={handleDirectSubmit} style={{ display: 'flex', gap: '8px' }}>
           <input
             type="text"
-            placeholder="Type any GitHub Username (e.g. your handle)"
+            placeholder="Type GitHub Username (e.g. octocat, Sruthindev-R-S)"
             value={usernameInput}
             onChange={(e) => setUsernameInput(e.target.value)}
             style={{
@@ -128,20 +136,43 @@ export const GitHubLogin = ({ onDirectLookup }) => {
           <button
             type="submit"
             style={{
-              background: 'transparent',
-              border: '1px solid var(--accent)',
-              color: 'var(--accent)',
-              padding: '10px 16px',
+              background: 'var(--accent)',
+              color: 'var(--bg)',
+              border: 'none',
+              padding: '10px 18px',
               borderRadius: '6px',
               fontFamily: 'var(--font-mono)',
               fontSize: '11px',
-              fontWeight: '700',
+              fontWeight: '800',
               cursor: 'pointer'
             }}
           >
             INSPECT
           </button>
         </form>
+
+        {/* Quick Sample User Badges */}
+        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '10px', color: 'var(--text-muted)', alignSelf: 'center' }}>TRY:</span>
+          {['octocat', 'Sruthindev-R-S', 'torvalds', 'gaearon'].map((user) => (
+            <button
+              key={user}
+              onClick={() => handleQuickTagClick(user)}
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--accent)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '10px',
+                cursor: 'pointer'
+              }}
+            >
+              @{user}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

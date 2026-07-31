@@ -187,6 +187,17 @@ exports.getContributors = async (req, res, next) => {
   }
 };
 
+exports.getRepoLanguages = async (req, res, next) => {
+  try {
+    const { owner, repo } = req.params;
+    const token = req.user?.accessToken || process.env.GITHUB_TOKEN || '';
+    const languages = await gitHubService.getRepoLanguages(owner, repo, token);
+    res.json(languages);
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
  * GET /api/tmdb/featured
  * Returns all featured movie references, TMDB IDs, posters, and color theme palettes.
@@ -291,7 +302,7 @@ exports.getCinematicProfile = async (req, res, next) => {
   try {
     const { username } = req.params;
     const token = req.user?.accessToken || process.env.GITHUB_TOKEN || '';
-    const cacheKey = `cinematic_profile:${username.toLowerCase()}`;
+    const cacheKey = `cinematic_profile:${username.toLowerCase()}${token ? ':auth' : ''}`;
     const cached = MemoryCache.get(cacheKey);
 
     if (cached && (!cached._isFallback || !token)) {
@@ -307,23 +318,61 @@ exports.getCinematicProfile = async (req, res, next) => {
     // Fast-generate main theme
     const mainTheme = await themeService.generateThemeFromMovie('', { title: `${username}'s Production` });
 
-    // Rapidly map top repos
-    const enrichedRepos = (repos || []).slice(0, 8).map(repo => ({
-      id: repo.id,
-      name: repo.name,
-      description: repo.description || 'No description provided.',
-      stargazers_count: repo.stargazers_count,
-      forks_count: repo.forks_count,
-      language: repo.language || 'Code',
-      updated_at: repo.updated_at,
-      html_url: repo.html_url,
-      movieMatch: null
+    // Seed movies for correlation fallback
+    const seedList = movieDbService.getAllSeedMovies();
+
+    // Rapidly map top repos with TMDB movie poster matches
+    const enrichedRepos = await Promise.all((repos || []).slice(0, 12).map(async (repo, idx) => {
+      let movieMatch = null;
+      try {
+        const matches = await tmdbService.searchMovie(repo.name);
+        if (matches && matches.length > 0) {
+          const top = matches[0];
+          movieMatch = {
+            title: top.title,
+            poster: top.posterUrl || tmdbService.getPoster(top.poster_path),
+            backdrop: top.backdropUrl || tmdbService.getBackdrop(top.backdrop_path),
+            rating: top.vote_average || 8.0,
+            overview: top.overview || ''
+          };
+        }
+      } catch (e) {}
+
+      if (!movieMatch && seedList.length > 0) {
+        const seed = seedList[idx % seedList.length];
+        movieMatch = {
+          title: seed.movie_name,
+          poster: tmdbService.getPoster(seed.poster_path),
+          backdrop: tmdbService.getBackdrop(seed.backdrop_path),
+          rating: seed.vote_average || 8.0,
+          overview: seed.overview || ''
+        };
+      }
+
+      return {
+        id: repo.id,
+        name: repo.name,
+        description: repo.description || 'No description provided.',
+        stargazers_count: repo.stargazers_count,
+        forks_count: repo.forks_count,
+        language: repo.language || 'Code',
+        updated_at: repo.updated_at,
+        html_url: repo.html_url,
+        movieMatch
+      };
     }));
 
     // Cast crew
     const castCrew = [
-      { id: 1, login: user.login || username, avatar_url: user.avatar_url, contributions: 150, role: 'Director / Lead Core' },
-      { id: 2, login: 'core-contributor', avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80', contributions: 45, role: 'Executive Producer' }
+      {
+        id: 1,
+        login: user.login || username,
+        name: user.name || user.login || username,
+        avatar_url: user.avatar_url || `https://github.com/${username}.png`,
+        contributions: repos.length * 15 || 42,
+        role: 'Director / Lead Core',
+        html_url: user.html_url || `https://github.com/${username}`
+      }
     ];
 
     const result = {
@@ -361,6 +410,74 @@ exports.getMe = async (req, res, next) => {
     }
     req.params.username = username;
     return exports.getCinematicProfile(req, res, next);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getRepoContents = async (req, res, next) => {
+  try {
+    const { owner, repo } = req.params;
+    const pathStr = req.query.path || '';
+    const token = req.user?.accessToken || process.env.GITHUB_TOKEN || '';
+    const contents = await gitHubService.getRepoContents(owner, repo, pathStr, token);
+    if (contents) {
+      return res.json(contents);
+    }
+    res.status(404).json({ error: 'Contents not found' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getFileContent = async (req, res, next) => {
+  try {
+    const { owner, repo } = req.params;
+    const filePath = req.query.path || 'README.md';
+    const token = req.user?.accessToken || process.env.GITHUB_TOKEN || '';
+    const content = await gitHubService.getFileContent(owner, repo, filePath, token);
+    if (content !== null) {
+      return res.json({ path: filePath, content });
+    }
+    res.status(404).json({ error: 'File content not found' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getRepoTree = async (req, res, next) => {
+  try {
+    const { owner, repo } = req.params;
+    const token = req.user?.accessToken || process.env.GITHUB_TOKEN || '';
+    const tree = await gitHubService.getRepoTree(owner, repo, token);
+    if (tree && tree.length > 0) {
+      return res.json(tree);
+    }
+    const contents = await gitHubService.getRepoContents(owner, repo, '', token);
+    return res.json(contents || []);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.saveMovieReference = async (req, res, next) => {
+  try {
+    const { title, tmdb_id, poster, backdrop, overview, rating } = req.body;
+    if (!title || !tmdb_id) {
+      return res.status(400).json({ error: 'Title and tmdb_id are required' });
+    }
+
+    const numericId = parseInt(String(tmdb_id).replace(/\D/g, ''), 10) || Math.floor(Math.random() * 1000000);
+    const saved = await movieDbService.saveMovieReference({
+      movie_name: title,
+      tmdb_id: numericId,
+      poster_path: poster || '',
+      backdrop_path: backdrop || '',
+      overview: overview || '',
+      vote_average: Number(rating || 8.0)
+    });
+
+    res.json({ message: 'Movie saved successfully', movie: saved });
   } catch (error) {
     next(error);
   }

@@ -29,7 +29,7 @@ class ThemeService {
    * @returns {Promise<object>} A promise that resolves to a theme object.
    */
   async generateThemeFromMovie(imageUrl, movieDetails = {}) {
-    const cacheKey = `theme:${movieDetails.id || imageUrl}`;
+    const cacheKey = `theme:${movieDetails.id || movieDetails.title || imageUrl || 'default'}`;
     const oneDayInSeconds = 24 * 60 * 60;
 
     if (this.cacheService) {

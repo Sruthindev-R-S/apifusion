@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchCinematicProfile } from './services/api.js';
 import { ProfilePage } from './components/ProfilePage.jsx';
+import { RepoDetailPage } from './components/RepoDetailPage.jsx';
 import { TMDBMovieThemeSelector } from './components/TMDBMovieThemeSelector.jsx';
 import { GitHubLogin } from './components/GitHubLogin.jsx';
 import { PlaceholderShowcase } from './components/PlaceholderShowcase.jsx';
@@ -26,6 +27,7 @@ export const App = () => {
   const [authenticated, setAuthenticated] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(false);
   const [showcaseMode, setShowcaseMode] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState(null);
 
   // Primary profile loader
   const loadProfile = useCallback(async (targetUser) => {
@@ -139,6 +141,7 @@ export const App = () => {
   };
 
   const handleSearchUser = (newUser) => {
+    setSelectedRepo(null);
     setShowcaseMode(false);
     setUsername(newUser);
     loadProfile(newUser);
@@ -148,6 +151,7 @@ export const App = () => {
     try {
       await fetch('/auth/logout', { credentials: 'include' });
     } catch (e) {}
+    setSelectedRepo(null);
     setAuthenticated(false);
     setViewingProfile(false);
     setShowcaseMode(false);
@@ -155,6 +159,19 @@ export const App = () => {
     setUsername('');
     window.history.pushState({}, document.title, window.location.pathname);
   };
+
+  if (selectedRepo) {
+    return (
+      <div className="cinematic-app">
+        <RepoDetailPage 
+          repo={selectedRepo}
+          userProfile={data?.userProfile}
+          currentTheme={currentTheme}
+          onBack={() => setSelectedRepo(null)}
+        />
+      </div>
+    );
+  }
 
   if (showcaseMode) {
     return (
@@ -226,6 +243,7 @@ export const App = () => {
           onSearchUser={handleSearchUser}
           onLogout={handleLogout}
           authenticated={authenticated}
+          onSelectRepo={(repo) => setSelectedRepo(repo)}
         />
       )}
     </div>

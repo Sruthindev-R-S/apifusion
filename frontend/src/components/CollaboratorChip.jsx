@@ -2,29 +2,38 @@ import React from 'react';
 
 /**
  * CollaboratorChip Micro-Component (Cast & Crew Member)
- * Renders contributor avatar, handle, role, and contribution count.
+ * Renders contributor avatar, full display name, handle, role, and clickable profile link.
  */
 export const CollaboratorChip = ({ collaborator }) => {
   if (!collaborator) return null;
 
-  const handle = collaborator.login || collaborator.username || 'Contributor';
-  const role = collaborator.role || `${collaborator.contributions || 1} Commits`;
-  const avatarUrl = collaborator.avatar_url || collaborator.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80';
+  const handle = collaborator.login || collaborator.username || 'developer';
+  const displayName = collaborator.name || handle;
+  const role = collaborator.role || `${collaborator.contributions || 1} Commit${(collaborator.contributions || 1) !== 1 ? 's' : ''}`;
+  const avatarUrl = collaborator.avatar_url || collaborator.avatarUrl || `https://github.com/${handle}.png`;
+  const profileUrl = collaborator.html_url || `https://github.com/${handle}`;
 
   return (
-    <div className="collaborator-chip">
+    <a 
+      href={profileUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="collaborator-chip"
+      style={{ textDecoration: 'none', color: 'inherit', display: 'flex' }}
+    >
       <img 
         src={avatarUrl} 
-        alt={handle} 
+        alt={displayName} 
         className="collaborator-avatar"
         onError={(e) => {
-          e.target.src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80';
+          e.target.src = `https://github.com/${handle}.png`;
         }}
       />
       <div className="collaborator-info">
+        <div className="collaborator-name">{displayName}</div>
         <div className="collaborator-handle">@{handle}</div>
         <div className="collaborator-role">{role}</div>
       </div>
-    </div>
+    </a>
   );
 };

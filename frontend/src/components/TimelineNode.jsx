@@ -7,14 +7,15 @@ import React from 'react';
 export const TimelineNode = ({ log }) => {
   if (!log) return null;
 
-  const { timestamp, title, description, isActive } = log;
+  const { timestamp, title, description, message, isActive } = log;
+  const logText = description || message || '';
 
   return (
     <div className={`timeline-item ${isActive ? 'active' : ''}`}>
       <div className="timeline-node-dot" />
       <div className="timeline-timestamp">{timestamp}</div>
       <h4 className="timeline-title">{title}</h4>
-      <p className="timeline-desc">{description}</p>
+      <p className="timeline-desc">{logText}</p>
     </div>
   );
 };

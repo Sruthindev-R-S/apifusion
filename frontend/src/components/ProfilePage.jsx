@@ -15,14 +15,18 @@ export const ProfilePage = ({
   currentTheme,
   repos = [], 
   castCrew = [],
-  onSearchUser
+  onSearchUser,
+  onLogout,
+  authenticated,
+  onSelectRepo
 }) => {
   const [searchInput, setSearchInput] = useState('');
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (searchInput.trim() && onSearchUser) {
-      onSearchUser(searchInput.trim());
+    const target = searchInput.trim() || 'octocat';
+    if (onSearchUser) {
+      onSearchUser(target);
     }
   };
 
@@ -181,7 +185,7 @@ export const ProfilePage = ({
 
             <div className="productions-grid">
               {repos.map((repo) => (
-                <MovieCard key={repo.id} production={repo} />
+                <MovieCard key={repo.id} production={repo} onSelectRepo={onSelectRepo} />
               ))}
               {repos.length === 0 && (
                 <div style={{ padding: '24px', color: 'var(--text-muted)' }}>
